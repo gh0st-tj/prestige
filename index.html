@@ -27,9 +27,10 @@
 
     .slider-container {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      justify-content: center;
       align-items: center;
-      gap: 10px;
+      gap: 20px;
       margin-bottom: 30px;
     }
 
@@ -39,13 +40,11 @@
       -webkit-appearance: none; /* Safari */
       background: transparent;
     }
-
     input[type="range"]::-webkit-slider-runnable-track {
       height: 6px;
       background: #666;
       border-radius: 3px;
     }
-
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       height: 18px;
@@ -56,34 +55,39 @@
       cursor: pointer;
     }
 
+    /* Number input styling */
+    input[type="number"] {
+      width: 80px;
+      padding: 5px;
+      font-size: 1rem;
+      background-color: #1f1b2e;
+      color: #ffffff;
+      border: 1px solid #444;
+      border-radius: 4px;
+      text-align: center;
+    }
+
     /* Table styling */
     table {
       width: 100%;
       border-collapse: collapse;
       margin-bottom: 50px;
     }
-
     th, td {
       border: 1px solid #444;
       padding: 8px 12px;
       text-align: right; /* numeric alignment */
     }
-
     th {
       background-color: #1f1b2e;
       color: #c486ff;
     }
-
     td.description-cell {
       text-align: left; /* left-align for description */
     }
-
-    /* Make the % column centered for readability */
     td.percent-cell {
-      text-align: center;
+      text-align: center; 
     }
-
-    /* Optional hover effect */
     tr:hover {
       background-color: #2d2a3c;
     }
@@ -94,18 +98,31 @@
   <h1>Investment Deal Calculator</h1>
   <div class="container">
 
-    <!-- Slider -->
+    <!-- Slider & manual input -->
     <div class="slider-container">
-      <label for="percentageSlider"><h2>Current Percentage: <span id="percentageValue">40</span>%</h2></label>
+      <label for="percentageSlider"><strong>Adjust Percentage:</strong></label>
       <input 
         type="range" 
         id="percentageSlider" 
         min="0" 
         max="100" 
         step="1" 
-        value="40" 
-        oninput="updateCalculations(this.value)"
+        value="40"
+        oninput="sliderChanged(this.value)" 
       />
+
+      <label for="percentageInput"><strong>Enter Percentage:</strong></label>
+      <input 
+        type="number" 
+        id="percentageInput" 
+        min="0" 
+        max="100" 
+        step="1" 
+        value="40"
+        oninput="inputChanged(this.value)"
+      />
+      
+      <h2>Current: <span id="percentageValue">40</span>%</h2>
     </div>
 
     <!-- Table -->
@@ -130,7 +147,6 @@
 
   <script>
     // Example data from your spreadsheet:
-    // Note: If certain rows do not have a percent, set it to 0 or null.
     const rowData = [
       {
         description: "DP (16%) + DLD (4%)",
@@ -176,7 +192,7 @@
       },
       {
         description: "total upto handover",
-        percentage: 0, // or can be total, no fixed % given
+        percentage: 0, 
         originalBeforeVAT: 9509718.00,
         originalVAT: 474692.40,
         originalTotal: 9984410.40
@@ -190,53 +206,42 @@
       }
     ];
 
-    // Reference to the table body:
     const tableBody = document.getElementById("data-body");
 
-    // Function that builds the table rows initially (with the default slider value).
-    // We'll call updateCalculations to fill in the 'calculated' columns.
+    // Build the table rows once.
     function buildTableRows() {
-      tableBody.innerHTML = ""; // clear any previous rows
+      tableBody.innerHTML = "";
 
       rowData.forEach((row, idx) => {
-        // Create a table row
         const tr = document.createElement("tr");
 
-        // Description
         const tdDesc = document.createElement("td");
         tdDesc.className = "description-cell";
         tdDesc.textContent = row.description;
 
-        // %
         const tdPercent = document.createElement("td");
         tdPercent.className = "percent-cell";
         tdPercent.textContent = row.percentage ? row.percentage + "%" : "";
 
-        // Original (Before VAT)
         const tdOriginalBefore = document.createElement("td");
         tdOriginalBefore.textContent = formatNumber(row.originalBeforeVAT);
 
-        // Original VAT
         const tdOriginalVAT = document.createElement("td");
         tdOriginalVAT.textContent = formatNumber(row.originalVAT);
 
-        // Original Total
         const tdOriginalTotal = document.createElement("td");
         tdOriginalTotal.textContent = formatNumber(row.originalTotal);
 
-        // Each Amount (Before VAT) [calculated - filled later]
+        // "Each" columns are empty for now, will be filled in later:
         const tdEachBefore = document.createElement("td");
         tdEachBefore.id = "eachBefore-" + idx;
 
-        // Each VAT [calculated - filled later]
         const tdEachVAT = document.createElement("td");
         tdEachVAT.id = "eachVAT-" + idx;
 
-        // Each Total [calculated - filled later]
         const tdEachTotal = document.createElement("td");
         tdEachTotal.id = "eachTotal-" + idx;
 
-        // Append all cells to the row
         tr.appendChild(tdDesc);
         tr.appendChild(tdPercent);
         tr.appendChild(tdOriginalBefore);
@@ -245,47 +250,60 @@
         tr.appendChild(tdEachBefore);
         tr.appendChild(tdEachVAT);
         tr.appendChild(tdEachTotal);
-
-        // Finally append the row to the table body
         tableBody.appendChild(tr);
       });
     }
 
-    // Utility for formatting numbers with commas / decimals
+    // Number formatting
     function formatNumber(num) {
-      return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return num.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
     }
 
-    // The main function that recalculates the 'Each' columns
-    function updateCalculations(sliderValue) {
-      // Update the visible percentage in the UI
-      document.getElementById("percentageValue").textContent = sliderValue;
+    // Update the 'Each' columns for the table
+    function updateCalculations(percentageValue) {
+      // Update displayed percentage
+      document.getElementById("percentageValue").textContent = percentageValue;
 
-      // Convert sliderValue to a fraction
-      const fraction = parseFloat(sliderValue) / 100.0;
+      // Ensure the slider/input displays match
+      const sliderElem = document.getElementById("percentageSlider");
+      const inputElem  = document.getElementById("percentageInput");
 
-      // For each row, recalc 'Each' columns
+      // Keep them in sync
+      sliderElem.value = percentageValue;
+      inputElem.value  = percentageValue;
+
+      const fraction = parseFloat(percentageValue) / 100.0;
+
       rowData.forEach((row, idx) => {
-        // We'll assume:
-        //  Each Before VAT = OriginalBeforeVAT * fraction
-        //  Each VAT        = OriginalVAT * fraction
-        //  Each Total      = Each Before VAT + Each VAT
         const eachBefore = row.originalBeforeVAT * fraction;
         const eachVAT    = row.originalVAT * fraction;
         const eachTotal  = eachBefore + eachVAT;
 
-        // Update table cells
         document.getElementById("eachBefore-" + idx).textContent = formatNumber(eachBefore);
         document.getElementById("eachVAT-" + idx).textContent    = formatNumber(eachVAT);
         document.getElementById("eachTotal-" + idx).textContent  = formatNumber(eachTotal);
       });
     }
 
-    // Build table rows once
-    buildTableRows();
+    // Called when slider changes
+    function sliderChanged(value) {
+      updateCalculations(value);
+    }
 
-    // Then do an initial update (assuming default slider at 40)
-    updateCalculations(document.getElementById("percentageSlider").value);
+    // Called when number input changes
+    function inputChanged(value) {
+      // Keep it within 0-100
+      if (value < 0) value = 0;
+      if (value > 100) value = 100;
+      updateCalculations(value);
+    }
+
+    // Initialize table rows and calculations on page load
+    buildTableRows();
+    updateCalculations("40"); // default value
   </script>
 </body>
 </html>
